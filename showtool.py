@@ -1,19 +1,21 @@
+
+# Tool for Manipulating Showtape Files
+# Frank Palazzolo - github.com/palazzol
+version_str = '0.90'
+
 import sys
 import struct
 import json
 from zipfile import ZipFile, ZIP_STORED, ZIP_DEFLATED
-import filecmp
 import wave
 import io
 import argparse
 from pathlib import Path
+#import filecmp
 
 '''
 TODO:
-package as exe
-fix usage msg
-verify/use unsigned ints for lengths of files
-validate wav files params better
+validate wav file params better?
 validate stages?
 '''
 
@@ -203,22 +205,6 @@ def packToShw(outfilename):
     audioData, signalData = readRawFiles()
     writeShwFile(outfilename, audioData, signalData)
 
-def fileCompare(f1, f2):
-    print(f'Comparing {f1} and {f2}...',end='')
-    if filecmp.cmp(f1,f2):
-        print('GOOD')
-    else:
-        print('BAD!')
-        sys.exit(-1)
-
-def test(shwfilename):
-    convertToShz(shwfilename)
-    shzfilename = shwfilename[:-1]+'z'
-    shw2filename = shwfilename[:-5]+'2' + shwfilename[-5:]
-    convertToShw(shzfilename,shw2filename)
-    fileCompare(shwfilename,shw2filename)
-    print()
-
 def testShwFile(infilename):
     audioData, signalData = readShwFile(infilename)
     printStats(audioData, signalData)
@@ -235,81 +221,78 @@ def getFileTypeFromName(filename):
     if filename[-5] == '.' and filename[-3:] == 'shz':
         return filename[-4:]
 
+'''
+def fileCompare(f1, f2):
+    print(f'Comparing {f1} and {f2}...',end='')
+    if filecmp.cmp(f1,f2):
+        print('GOOD')
+    else:
+        print('BAD!')
+        sys.exit(-1)
+
+def test(shwfilename):
+    convertToShz(shwfilename)
+    shzfilename = shwfilename[:-1]+'z'
+    shw2filename = shwfilename[:-5]+'2' + shwfilename[-5:]
+    convertToShw(shzfilename,shw2filename)
+    fileCompare(shwfilename,shw2filename)
+    print()
+'''
+
 def main():
     # Parsing the arguments
-    parser = argparse.ArgumentParser(description = 'Showfile Tool')
-    parser.add_argument('-v','--version',help='Print Version Info',required=False,action="store_true")
-    parser.add_argument('-t','--test',help='Test File Integrity',required=False,action="store_true")
-    parser.add_argument('-c','--convert',help='Convert File Formats',required=False,action="store_true")
-    parser.add_argument('-p','--pack',help='Package components into a file',required=False,action="store_true")
-    parser.add_argument('-u','--unpack',help='Unpackage file into components',required=False,action="store_true")
-    parser.add_argument('infile', nargs='?',type=str)
-    parser.add_argument('outfile', nargs='?',type=str)
+    parser = argparse.ArgumentParser(description = f'Showtape Tool - v{version_str}')
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument('-v','--version',help='print version Info',required=False,action="store_true")
+    group.add_argument('-t','--test',help='test file integrity',nargs='?',metavar='INFILE',required=False)
+    group.add_argument('-c','--convert',help='convert file format',nargs='+',metavar=('INFILE','OUTFILE'),required=False)
+    group.add_argument('-p','--pack',help='package components into a file',nargs='?',metavar='OUTFILE',required=False)
+    group.add_argument('-u','--unpack',help='unpackage file into components',nargs='?',metavar='INFILE',required=False)
     global_args = parser.parse_args()
 
     if global_args.version:
-        print(f'{sys.argv[0]} - v1.0')
-        sys.exit(0)
+        print(f'{sys.argv[0]} - v{version_str}')
     if global_args.test:
-        if not global_args.infile:
-            print('Error: Argument INFILE required')
-            sys.exit(-1)
-        t = getFileTypeFromName(global_args.infile)
+        t = getFileTypeFromName(global_args.test)
         if t == '':
             print('Error: Cannot guess filetype from file extension')
             sys.exit(-1)
         if t[-1] == 'w':
-            testShwFile(global_args.infile)
-            sys.exit(0)
+            testShwFile(global_args.test)
         if t[-1] == 'z':
-            testShzFile(global_args.infile)
-            sys.exit(0)
+            testShzFile(global_args.test)
     if global_args.convert:
-        if not global_args.infile:
-            print('Error: Argument INFILE required')
-            sys.exit(-1)
-        if not global_args.outfile:
-            global_args.outfile = ''
-        t = getFileTypeFromName(global_args.infile)
+        infilename = global_args.convert[0]
+        if len(global_args.convert) > 1:
+            outfilename = global_args.convert[1]
+        else:
+            outfilename = ''
+        t = getFileTypeFromName(infilename)
         if t == '':
             print('Error: Cannot guess filetype from file extension')
             sys.exit(-1)
         if t[-1] == 'w':
-            convertToShz(global_args.infile, global_args.outfile)
-            sys.exit(0)
+            convertToShz(infilename, outfilename)
         if t[-1] == 'z':
-            convertToShw(global_args.infile, global_args.outfile)
-            sys.exit(0)
+            convertToShw(infilename, outfilename)
     if global_args.unpack:
-        if not global_args.infile:
-            print('Error: Argument INFILE required')
-            sys.exit(-1)
-        t = getFileTypeFromName(global_args.infile)
+        t = getFileTypeFromName(global_args.unpack)
         if t == '':
             print('Error: Cannot guess filetype from file extension')
             sys.exit(-1)
         if t[-1] == 'w':
-            unpackFromShw(global_args.infile)
-            sys.exit(0)
+            unpackFromShw(global_args.unpack)
         if t[-1] == 'z':
-            unpackFromShz(global_args.infile)
-            sys.exit(0)
+            unpackFromShz(global_args.unpack)
     if global_args.pack:
-        if not global_args.infile:
-            print('Error: Argument INFILE required')
-            sys.exit(-1)
-        t = getFileTypeFromName(global_args.infile)
+        t = getFileTypeFromName(global_args.pack)
         if t == '':
             print('Error: Cannot guess filetype from file extension')
             sys.exit(-1)
         if t[-1] == 'w':
-            packToShw(global_args.infile)
-            sys.exit(0)
+            packToShw(global_args.pack)
         if t[-1] == 'z':
-            packToShz(global_args.infile)
-            sys.exit(0)
-    print('Error: Must have at least one argument, type "showtool -h" for more info')
-    sys.exit(-1)
+            packToShz(global_args.pack)
 
 if __name__ == "__main__":
     main()
