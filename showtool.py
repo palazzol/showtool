@@ -6,10 +6,12 @@ import filecmp
 import wave
 import io
 import argparse
+from pathlib import Path
 
 '''
 TODO:
-dont clobber existing files by default!!!
+package as exe
+fix usage msg
 verify/use unsigned ints for lengths of files
 validate wav files params better
 validate stages?
@@ -30,8 +32,12 @@ def validateContent(chunk, reference):
 
 def readShwFile(infilename):
     # Validate format and extract data
+    p = Path(infilename)
+    if not p.is_file():
+        print(f"Error: File {infilename} doesn't exist")
+        sys.exit(-1)
     print(f"Reading {infilename}...")
-    with open(infilename,'rb') as f:
+    with p.open('rb') as f:
         chunk = f.read(0xdd)
         validateLength(chunk, 0xdd)
         validateContent(chunk, header)
@@ -60,25 +66,45 @@ def readShwFile(infilename):
         return audioData, signalData
 
 def readRawFiles():
-    print(f"Reading {'audioData.wav'}...")
-    with open('audioData.wav','rb') as f:
+    p = Path('audioData.wav')
+    if not p.is_file():
+        print(f"Error: File audioData.wav doesn't exist")
+        sys.exit(-1)
+    print(f"Reading audioData.wav...")
+    with p.open('rb') as f:
         audioData = f.read()
-    print(f"Reading {'signalData.json'}...")
-    with open('signalData.json','r') as f:
+    p = Path('signalData.json')
+    if not p.is_file():
+        print(f"Error: File signalData.json doesn't exist")
+        sys.exit(-1)        
+    print(f"Reading signalData.json...")
+    with p.open('r') as f:
         signalDataJson = f.read()
     signalData = json.loads(signalDataJson)
     return audioData, signalData
 
 def writeRawFiles(audioData, signalData):
     # Write individual files
+    p = Path('audioData.wav')
+    if p.is_file():
+        print("Error: File audioData.wav already exists")
+        sys.exit(-1)
     print(f"Writing {'audioData.wav'}...")
-    with open('audioData.wav','wb') as f:
+    with p.open('wb') as f:
         f.write(audioData)
+    p = Path('signalData.json')
+    if p.is_file():
+        print("Error: File signalData.json already exists")
+        sys.exit(-1)        
     print(f"Writing {'signalData.json'}...")
-    with open('signalData.json','w') as f:
+    with p.open('w') as f:
         json.dump(signalData, f)
 
 def writeShzFile(outfilename, audioData, signalData):
+    p = Path(outfilename)
+    if p.is_file():
+        print(f"Error: File {outfilename} already exists")
+        sys.exit(-1)
     print(f"Writing {outfilename}...")
     audioDataBuffer = io.BytesIO(audioData)
     signalDataBuffer = io.BytesIO()
@@ -89,6 +115,10 @@ def writeShzFile(outfilename, audioData, signalData):
         f.writestr('signalData.zip',signalDataBuffer.getvalue())
 
 def readShzFile(infilename):
+    p = Path(infilename)
+    if not p.is_file():
+        print(f"Error: File {infilename} doesn't exist")
+        sys.exit(-1)
     print(f"Reading {infilename}...")
     with ZipFile(infilename,'r') as f:
         with f.open('audioData.wav','r') as f2:
@@ -102,6 +132,10 @@ def readShzFile(infilename):
     return audioData, signalData
 
 def writeShwFile(outfilename, audioData, signalData):
+    p = Path(outfilename)
+    if p.is_file():
+        print(f"Error: File {outfilename} already exists")
+        sys.exit(-1)
     print(f"Writing {outfilename}...")
     with open(outfilename,'wb') as f:
         f.write(header)
@@ -218,7 +252,7 @@ def main():
         sys.exit(0)
     if global_args.test:
         if not global_args.infile:
-            print('Error: infile argument required')
+            print('Error: Argument INFILE required')
             sys.exit(-1)
         t = getFileTypeFromName(global_args.infile)
         if t == '':
@@ -232,7 +266,7 @@ def main():
             sys.exit(0)
     if global_args.convert:
         if not global_args.infile:
-            print('Error: infile argument required')
+            print('Error: Argument INFILE required')
             sys.exit(-1)
         if not global_args.outfile:
             global_args.outfile = ''
@@ -248,7 +282,7 @@ def main():
             sys.exit(0)
     if global_args.unpack:
         if not global_args.infile:
-            print('Error: infile argument required')
+            print('Error: Argument INFILE required')
             sys.exit(-1)
         t = getFileTypeFromName(global_args.infile)
         if t == '':
@@ -262,7 +296,7 @@ def main():
             sys.exit(0)
     if global_args.pack:
         if not global_args.infile:
-            print('Error: infile argument required')
+            print('Error: Argument INFILE required')
             sys.exit(-1)
         t = getFileTypeFromName(global_args.infile)
         if t == '':
