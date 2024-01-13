@@ -1,20 +1,22 @@
 
-### Warning - this is very preliminary.  Backup your files before trying this!
+### Warning - this is the first release!  Backup your files before trying this!
 
 ```
-usage: showtool.py [-h] [-v] [-t] [-c] [-p] [-u] [infile] [outfile]
+usage: showtool [-h]
+                (-v | -t [INFILE] | -c INFILE [OUTFILE ...] | -p [OUTFILE] | -u [INFILE])
 
-Showfile Tool
-
-positional arguments:
-  infile
-  outfile
+Showtape Tool - v0.90
 
 optional arguments:
-  -h, --help     show this help message and exit
-  -v, --version  Print Version Info
-  -t, --test     Test File Integrity
-  -c, --convert  Convert File Formats
-  -p, --pack     Package components into a file
-  -u, --unpack   Unpackage file into components
+  -h, --help            show this help message and exit
+  -v, --version         print version Info
+  -t [INFILE], --test [INFILE]
+                        test file integrity
+  -c INFILE [OUTFILE ...], --convert INFILE [OUTFILE ...]
+                        convert file format
+  -p [OUTFILE], --pack [OUTFILE]
+                        package components into a file
+  -u [INFILE], --unpack [INFILE]
+                        unpackage file into components
+
 ```
