@@ -1,7 +1,7 @@
 
 # Tool for Manipulating Showtape Files
 # Frank Palazzolo - github.com/palazzol
-version_str = '0.90'
+version_str = '0.91'
 
 import sys
 import struct
@@ -60,12 +60,17 @@ def readShwFile(infilename):
         #print(signalfilesamples)
         chunk = f.read(signalfilesamples*4)
         signalData = struct.unpack(f'={signalfilesamples}i',chunk)
-        chunk = f.read(53)
-        validateContent(chunk, footer)
         chunk = f.read(1)
-        validateLength(chunk,0)
+        validateContent(chunk, b'\x0b') # MessageEnd Record
+        footer = f.read()
         #print("File Format OK")
-        return audioData, signalData
+        videxists = False
+        if infilename[-4] in 'rRsS':
+            vidfilename = infilename[:-5] + '.mp4'
+            p = Path(vidfilename)
+            if p.is_file():
+                videxists = True
+        return audioData, signalData, footer, videxists
 
 def readRawFiles():
     p = Path('audioData.wav')
@@ -153,7 +158,21 @@ def writeShwFile(outfilename, audioData, signalData):
         f.write(chunk)
         f.write(footer)
 
-def printStats(audioData, signalData):
+def validateWavFile(audioData):
+    if audioData[0:4] != b'RIFF':
+        print("Error: audioData is not a RIFF file!")
+        sys.exit(-1)
+    audioDataSize = len(audioData)
+    cs = struct.unpack('=i',audioData[4:8])[0]
+    if cs+8 != audioDataSize:
+        print("Warning: RIFF chunk size incorrect, will auto-repair if written")
+        chunk = struct.pack('=i',audioDataSize-8)
+        audioData = bytearray(audioData)
+        audioData[4:8] = chunk
+        audioData = bytes(audioData)
+    return audioData
+
+def printStats(infilename, audioData, signalData, footer, videxists):
     audioDataBuffer = io.BytesIO(audioData)
     with wave.open(audioDataBuffer,'rb') as f:
         print( "Audio Info:")
@@ -174,44 +193,67 @@ def printStats(audioData, signalData):
     print( "    Number of frames:  ",c)
     print( "    Max channel number:",m)
     print( "    Duration (s):      ",c/60.0)
+    print( "Footer Info: ")
+    print(f"    {footer}")
+    if infilename[-4] in 'rRsS':
+        if videxists:
+            print( "Matching mp4 file exists" )
+        else:
+            print( "Matching mp4 file missing" )
+    print()
+
 
 def convertToShz(infilename, outfilename=''):
     # Validate format and extract data
-    audioData, signalData = readShwFile(infilename)
+    audioData, signalData, footer, videxists = readShwFile(infilename)
+    audioData = validateWavFile(audioData)
     # Write outfile
     if outfilename == '':
         outfilename = infilename[:-1]+'z'
     writeShzFile(outfilename, audioData, signalData)
+    print('Done.')
 
 def convertToShw(infilename, outfilename=''):
     audioData, signalData = readShzFile(infilename)
+    audioData = validateWavFile(audioData)
     if outfilename == '':
         outfilename = infilename[:-1]+'w'
     writeShwFile(outfilename,audioData,signalData)
+    print('Done.')
 
 def unpackFromShz(infilename):
     audioData, signalData = readShzFile(infilename)
+    audioData = validateWavFile(audioData)
     writeRawFiles(audioData, signalData)
+    print('Done.')
 
 def unpackFromShw(infilename):
-    audioData, signalData = readShwFile(infilename)
+    audioData, signalData, footer, videxists = readShwFile(infilename)
+    audioData = validateWavFile(audioData)
     writeRawFiles(audioData, signalData)
+    print('Done.')
 
 def packToShz(outfilename):
     audioData, signalData = readRawFiles()
+    audioData = validateWavFile(audioData)
     writeShzFile(outfilename, audioData, signalData)
+    print('Done.')
 
 def packToShw(outfilename):
     audioData, signalData = readRawFiles()
+    audioData = validateWavFile(audioData)
     writeShwFile(outfilename, audioData, signalData)
+    print('Done.')
 
 def testShwFile(infilename):
-    audioData, signalData = readShwFile(infilename)
-    printStats(audioData, signalData)
+    audioData, signalData, footer, videxists = readShwFile(infilename)
+    audioData = validateWavFile(audioData)
+    printStats(infilename, audioData, signalData, footer, videxists)
 
 def testShzFile(infilename):
     audioData, signalData = readShzFile(infilename)
-    printStats(audioData, signalData)
+    audioData = validateWavFile(audioData)
+    printStats(infilename, audioData, signalData, '', False)
 
 def getFileTypeFromName(filename):
     if len(filename) < 6:
